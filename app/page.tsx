@@ -33,7 +33,7 @@ export default function PublicLandingPage() {
             </div>
           </div>
 
-          <a href="/dashboard/order" className="btn-dark">Explore Automation Rates</a>
+          <a href="/login" className="btn-dark">Explore Automation Rates</a>
         </div>
       </div>
 
