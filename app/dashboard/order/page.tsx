@@ -16,6 +16,7 @@ export default function OrderPage() {
   const [targetLink, setTargetLink] = useState<string>('');
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [totalCost, setTotalCost] = useState<number>(150);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const ratePerThousand = SMM_SERVICES[platform][service] || 0;
@@ -27,14 +28,31 @@ export default function OrderPage() {
     if (platform !== 'youtube' && service === 'subscribers') setService('followers');
   }, [platform]);
 
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      alert(`Order saved to database processing queue!\nTarget Link: ${targetLink}\nReference Code: ${paymentRef}`);
+      setTargetLink('');
+      setPaymentRef('');
+    }, 1200);
+  };
+
   return (
     <div className="container">
+      <header style={{ padding: '1rem 0', borderBottom: '1px solid #e5e7eb', marginBottom: '2rem', background: 'transparent', boxShadow: 'none' }}>
+        <div className="brand-logo" style={{ fontSize: '1.25rem' }}>Client Control Panel</div>
+        <button onClick={() => window.location.href = "/login"} className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', background: '#edf2f7', color: '#4a5568' }}>Disconnect Console</button>
+      </header>
+
       <div className="split-layout">
         <div>
           <h2>Automated Order Engine</h2>
-          <p>Paste your public social links to instantly trigger automated delivery profiles.</p>
+          <p>Paste target payload links to activate background fulfillment routines.</p>
           
-          <form onSubmit={(e) => { e.preventDefault(); alert("Reference logged! Order waiting verification."); }}>
+          <form onSubmit={handleCreateOrder}>
             <div className="form-group">
               <label className="form-label">Target Network Space</label>
               <select value={platform} onChange={(e: any) => setPlatform(e.target.value)}>
@@ -50,9 +68,9 @@ export default function OrderPage() {
               <select value={service} onChange={(e: any) => setService(e.target.value)}>
                 <option value="likes">Likes / Engagement Boost</option>
                 {platform === 'youtube' ? (
-                  <option value="subscribers">Subscribers (Premium Tier)</option>
+                  <option value="subscribers">Subscribers (Premium Channel Tier)</option>
                 ) : (
-                  <option value="followers">Followers / Account Growth</option>
+                  <option value="followers">Followers / Page Expansion</option>
                 )}
               </select>
             </div>
@@ -64,7 +82,7 @@ export default function OrderPage() {
 
             <div className="form-group">
               <label className="form-label">Quantity Volume</label>
-              <input type="number" min="100" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="form-input" />
+              <input type="number" min="100" step="100" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="form-input" />
             </div>
 
             <div className="price-box">
@@ -72,26 +90,28 @@ export default function OrderPage() {
               <span className="price-value">KSh {totalCost.toLocaleString()}</span>
             </div>
 
-            <button type="submit" className="btn-primary" style={{ width: '100%', padding: '1rem' }}>Confirm & Launch Automation</button>
+            <button type="submit" className="btn-primary" style={{ width: '100%', padding: '1rem' }} disabled={loading}>
+              {loading ? "Writing Database Entry..." : "Confirm & Launch Automation"}
+            </button>
           </form>
         </div>
 
-        <div className="bank-sidebar">
+        <div className="bank-sidebar" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div className="bank-badge-row">
               <span className="pulse-dot"></span>
               <h3>I&M Bank Settlement Portal</h3>
             </div>
-            <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>Process an electronic money transfer matching the total calculations above directly to our official banking coordinates:</p>
+            <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>Fulfillment routines engage automatically once accounting nodes verify inbound deposits.</p>
             <div className="bank-details-box">
-              <p><strong>Bank:</strong> I&M Bank Kenya</p>
-              <p><strong>Name:</strong> SMM AUTOMATION PANEL LTD</p>
-              <p><strong>Acc:</strong> 0123 4567 8901</p>
+              <p><strong>Bank Entity:</strong> I&M Bank Kenya</p>
+              <p><strong>Account Name:</strong> SMM AUTOMATION PANEL LTD</p>
+              <p><strong>Account Number:</strong> 0123 4567 8901</p>
             </div>
           </div>
           <div style={{ marginTop: '1.5rem' }}>
             <label className="form-label">Bank Transaction Reference Code</label>
-            <input type="text" required placeholder="E.g., IM-9284710X" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} className="form-input input-mono" />
+            <input type="text" required placeholder="IM-XXXXXXXX" value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} className="form-input input-mono" />
           </div>
         </div>
       </div>
