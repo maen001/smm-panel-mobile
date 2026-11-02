@@ -2,8 +2,8 @@
 module.exports = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/dashboard/order/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/admin/**/*.{js,ts,jsx,tsx,mdx}"
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {},
