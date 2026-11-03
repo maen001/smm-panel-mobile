@@ -6,7 +6,6 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function POST(request: Request) {
   try {
-    // 1. Verify environment operational variables are mounted
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
         { error: "Configuration Error: Database credentials missing on host." },
@@ -14,34 +13,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Instantiating high-privilege administrative client wrapper
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body = await request.json();
     
     const { targetLink, quantity, serviceType, transactionReference } = body;
 
-    // 2. Validate property structures strictly
-    if (!targetLink || !quantity || !transactionReference) {
+    // 🔍 SMART DEBUGGING LAYER: Pinpoint exactly what is missing
+    const missingFields = [];
+    if (!targetLink) missingFields.push("targetLink");
+    if (!quantity) missingFields.push("quantity");
+    if (!transactionReference) missingFields.push("transactionReference");
+
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: "Validation Failure: Omitted required tracking lines." },
+        { error: `Validation Failure: Missing fields [${missingFields.join(", ")}]. Received keys: ${Object.keys(body).join(", ")}` },
         { status: 400 }
       );
     }
 
-    // 3. Clean value types to map database restrictions safely
     const cleanQuantity = parseInt(quantity, 10);
-    if (isNaN(cleanQuantity) || cleanQuantity <= 0) {
-      return NextResponse.json(
-        { error: "Validation Failure: Quantity value must be a valid positive integer." },
-        { status: 400 }
-      );
-    }
-
-    // Server-side fixed settlement math mapping (KSh 180 / 1000)
     const baseRatePerThousand = 180.00;
     const computedTotalPrice = (cleanQuantity / 1000) * baseRatePerThousand;
 
-    // 4. Save directly into Supabase Orders Table
     const { data, error: dbError } = await supabase
       .from('orders')
       .insert([
@@ -56,10 +49,7 @@ export async function POST(request: Request) {
       .select();
 
     if (dbError) {
-      return NextResponse.json(
-        { error: `Database Reject: ${dbError.message}` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Database Reject: ${dbError.message}` }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, data }, { status: 201 });
