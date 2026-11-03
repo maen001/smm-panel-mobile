@@ -1,185 +1,144 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import "../../globals.css"; // Explicit style engine injector hook
-
-const SMM_SERVICES = {
-  instagram: { likes: 150, followers: 350, subscribers: 0 },
-  tiktok: { likes: 200, followers: 450, subscribers: 0 },
-  facebook: { likes: 180, followers: 400, subscribers: 0 },
-  youtube: { likes: 300, followers: 0, subscribers: 1200 }
-};
+import React, { useState } from "react";
 
 export default function OrderPage() {
-  const [platform, setPlatform] = useState<'instagram' | 'tiktok' | 'facebook' | 'youtube'>('instagram');
-  const [service, setService] = useState<'likes' | 'followers' | 'subscribers'>('likes');
-  const [quantity, setQuantity] = useState<number>(1000);
-  const [targetLink, setTargetLink] = useState<string>('');
-  const [paymentRef, setPaymentRef] = useState<string>('');
-  const [totalCost, setTotalCost] = useState<number>(150);
-  const [loading, setLoading] = useState<boolean>(false);
+  // 1. Core Form Input States
+  const [serviceType, setServiceType] = useState("Likes / Engagement Boost");
+  const [targetLink, setTargetLink] = useState("https://facebook.com");
+  const [quantity, setQuantity] = useState("1000");
+  const [transactionReference, setTransactionReference] = useState("IM-TEST900");
+  
+  // UI Status Tracking
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Dynamic automatic price calculation engine
-  useEffect(() => {
-    const ratePerThousand = SMM_SERVICES[platform][service] || 0;
-    setTotalCost((quantity / 1000) * ratePerThousand);
-  }, [platform, service, quantity]);
+  // 2. Server-side Rate Synchronizer (KSh 180 per 1,000 units)
+  const baseRatePerThousand = 180.00;
+  const calculatedSettlement = (Number(quantity || 0) / 1000) * baseRatePerThousand;
 
-  // Prevent invalid service configurations on specialized tiers
-  useEffect(() => {
-    if (platform === 'youtube' && service === 'followers') setService('subscribers');
-    if (platform !== 'youtube' && service === 'subscribers') setService('followers');
-  }, [platform]);
-
-  // Actual Next.js backend endpoint route database persistence function
-  const handleCreateOrder = async (e: React.FormEvent) => {
+  // 3. Form Submit Transaction Dispatcher
+  const handleOrderSubmission = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetLink || !paymentRef) {
-      return alert("Please completely fill out target link and payment reference fields.");
-    }
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
-      // Dispatches complete link payload down to your live server API pipeline
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, service, quantity, targetLink, paymentRef, totalCost })
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetLink: targetLink.trim(),
+          quantity: quantity.trim(),
+          serviceType: serviceType,
+          transactionReference: transactionReference.trim(),
+        }),
       });
 
       const result = await response.json();
 
-      if (response.ok) {
-        alert(`🎉 Order Automated Successfully!\nLink synced to background processing queue.\nTracking Node ID: ${result.order[0].id}`);
-        setTargetLink('');
-        setPaymentRef('');
-      } else {
-        alert(`Database Sync Interrupted: ${result.error || 'Unknown server fault.'}`);
+      if (!response.ok) {
+        throw new Error(result.error || "Server responded with an unknown fault state.");
       }
-    } catch (err) {
-      alert("Network transmission error occurred trying to sync cloud database lines.");
+
+      alert(`🎉 Order Created Successfully! Database Reference ID: ${result.data[0].id}`);
+      
+      // Reset payment input tracker on success
+      setTransactionReference("");
+    } catch (error: any) {
+      console.error("Submission Trace Fault:", error);
+      alert(`Database Sync Interrupted: ${error.message}`);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="container">
-      {/* Header Module Navbar */}
-      <header style={{ padding: '1rem 0', borderBottom: '1px solid #e5e7eb', marginBottom: '2rem', background: 'transparent', boxShadow: 'none' }}>
-        <div className="brand-logo" style={{ fontSize: '1.25rem' }}>Client Control Panel</div>
-        <button 
-          onClick={() => window.location.href = "/login"} 
-          className="btn-primary" 
-          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', background: '#edf2f7', color: '#4a5568', border: '1px solid #cbd5e1' }}
-        >
-          Disconnect Console
-        </button>
-      </header>
-
-      {/* Main Split Interface Area Grid layout */}
-      <div className="split-layout">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start p-4 font-sans text-gray-900">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-2">
         
-        {/* Left Side: Order Formulation Component */}
-        <div>
-          <h2>Automated Order Engine</h2>
-          <p>Paste target payload links to activate background fulfillment routines.</p>
+        {/* Form Container */}
+        <form onSubmit={handleOrderSubmission} className="p-5 space-y-4">
           
-          <form onSubmit={handleCreateOrder}>
-            <div className="form-group">
-              <label className="form-label">Target Network Space</label>
-              <select value={platform} onChange={(e: any) => setPlatform(e.target.value)}>
-                <option value="instagram">Instagram Footprint</option>
-                <option value="tiktok">TikTok Network</option>
-                <option value="facebook">Facebook Space</option>
-                <option value="youtube">YouTube Engine</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Service Type</label>
-              <select value={service} onChange={(e: any) => setService(e.target.value)}>
-                <option value="likes">Likes / Engagement Boost</option>
-                {platform === 'youtube' ? (
-                  <option value="subscribers">Subscribers (Premium Channel Tier)</option>
-                ) : (
-                  <option value="followers">Followers / Page Expansion</option>
-                )}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Paste Target Item Link Here</label>
-              <input 
-                type="url" 
-                required 
-                placeholder="https://..." 
-                value={targetLink} 
-                onChange={(e) => setTargetLink(e.target.value)} 
-                className="form-input" 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Quantity Volume</label>
-              <input 
-                type="number" 
-                min="100" 
-                step="100" 
-                value={quantity} 
-                onChange={(e) => setQuantity(Number(e.target.value))} 
-                className="form-input" 
-              />
-            </div>
-
-            <div className="price-box">
-              <span className="price-label">Calculated Settlement Due:</span>
-              <span className="price-value">KSh {totalCost.toLocaleString()}</span>
-            </div>
-
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              style={{ width: '100%', padding: '1rem', borderRadius: '0.75rem', fontWeight: 'bold' }} 
-              disabled={loading}
-            >
-              {loading ? "Writing Database Entry..." : "Confirm & Launch Automation"}
-            </button>
-          </form>
-        </div>
-
-        {/* Right Side: Bank Operations Settlement Module */}
-        <div className="bank-sidebar" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <div className="bank-badge-row">
-              <span className="pulse-dot"></span>
-              <h3>I&M Bank Settlement Portal</h3>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: '#6b7280', lineHeight: '1.4' }}>
-              Fulfillment routines engage automatically once administrative accounting nodes verify inbound reference codes against daily statement drops.
-            </p>
-            <div className="bank-details-box">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Service Type</label>
+            <select 
+              value={serviceType}
+              onChange={(e) => setServiceType(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option>Likes / Engagement Boost</option>
+              <option>Followers / Channel Growth</option>
+              <option>Subscribers / Premium Reach</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Paste Target Item Link Here</label>
+            <input 
+              type="url"
+              required
+              value={targetLink}
+              onChange={(e) => setTargetLink(e.target.value)}
+              placeholder="https://..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Quantity Volume</label>
+            <input 
+              type="number"
+              required
+              min="100"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Pricing Banner Node */}
+          <div className="bg-blue-50/60 rounded-xl p-4 flex justify-between items-center border border-blue-100/50">
+            <span className="text-xs font-medium text-blue-800">Calculated Settlement Due:</span>
+            <span className="text-lg font-bold text-blue-900">KSh {calculatedSettlement.toLocaleString()}</span>
+          </div>
+
+          {/* Core Dispatch Trigger CTA */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`w-full py-3 rounded-xl text-sm font-semibold text-white transition-all ${
+              isSubmitting 
+                ? "bg-blue-900/40 cursor-not-allowed" 
+                : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"
+            }`}
+          >
+            {isSubmitting ? "Writing Database Entry..." : "Submit Verification Settlement"}
+          </button>
+
+          {/* Manual Checkout Wire Instructions Module */}
+          <div className="pt-4 border-t border-gray-100 space-y-3 text-xs text-gray-600">
+            <div className="bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-100">
               <p><strong>Bank Entity:</strong> I&M Bank Kenya</p>
               <p><strong>Account Name:</strong> SMM AUTOMATION PANEL LTD</p>
               <p><strong>Account Number:</strong> 0123 4567 8901</p>
               <p><strong>Branch Node:</strong> Nakuru Main Branch</p>
             </div>
-          </div>
-          
-          <div style={{ marginTop: '1.5rem' }}>
-            <label className="form-label">Bank Transaction Reference Code</label>
-            <input 
-              type="text" 
-              required 
-              placeholder="E.g., IM-9284710X" 
-              value={paymentRef} 
-              onChange={(e) => setPaymentRef(e.target.value)} 
-              className="form-input input-mono" 
-              style={{ letterSpacing: '0.05em', fontWeight: 'bold' }}
-            />
-          </div>
-        </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Bank Transaction Reference Code</label>
+              <input 
+                type="text"
+                required
+                placeholder="e.g., IM-TEST900"
+                value={transactionReference}
+                onChange={(e) => setTransactionReference(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+        </form>
       </div>
     </div>
   );
