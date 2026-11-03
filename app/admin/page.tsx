@@ -1,102 +1,182 @@
 "use client";
 
-import React, { useState } from 'react';
-import "../globals.css"; // Explicit style engine injector hook
+import React, { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const INITIAL_QUEUE_PAYLOADS = [
-  { id: "Q-902", client: "John Doe", platform: "YouTube", service: "Subscribers", quantity: 5000, link: "https://youtube.com...", reference: "IM-9284710X", cost: 6000, status: "pending" },
-  { id: "Q-871", client: "Jane Wanjiku", platform: "TikTok", service: "Likes", quantity: 10000, link: "https://tiktok.com...", reference: "IM-5521948B", cost: 2000, status: "delivering" }
-];
+// Initialize Supabase Web Client safely using public keys
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface SMMOrder {
+  id: string;
+  target_link: string;
+  quantity: number;
+  total_price: number;
+  status: "pending_payment" | "processing" | "completed" | "failed";
+  transaction_reference: string;
+  created_at: string;
+}
 
 export default function AdminDashboard() {
-  const [queues, setQueues] = useState(INITIAL_QUEUE_PAYLOADS);
+  const [orders, setOrders] = useState<SMMOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const fireOverridePipeline = (id: string) => {
-    setQueues(prev => prev.map(q => q.id === id ? { ...q, status: "delivering" } : q));
-    alert(`Payment match confirmed! Background automated delivery triggered for entry ${id}.`);
+  // 1. Fetch Orders from Database on Load
+  const fetchLiveOrders = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (err: any) {
+      console.error("Admin Fetch Fault:", err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    if (supabaseUrl && supabaseAnonKey) {
+      fetchLiveOrders();
+    }
+  }, []);
+
+  // 2. Action Handler: Update Payment Verification Status Loops
+  const handleUpdateStatus = async (orderId: string, nextStatus: SMMOrder["status"]) => {
+    setUpdatingId(orderId);
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: nextStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Optimistically update UI state matrix
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+      );
+    } catch (err: any) {
+      alert(`Status update failed: ${err.message}`);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // Metrics Aggregation Math
+  const totalVolumeOrders = orders.length;
+  const pendingSettlements = orders.filter((o) => o.status === "pending_payment").length;
+
   return (
-    <div className="container">
-      {/* Header Panel */}
-      <div className="admin-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '2px solid #e5e7eb' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem' }}>Admin Control Center</h1>
-          <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>System-wide order payloads, links, and payment overrides.</p>
+    <div className="min-h-screen bg-gray-50 p-4 font-sans text-gray-900">
+      <div className="max-w-5xl mx-auto space-y-5">
+        
+        {/* Header Node */}
+        <div className="flex justify-between items-center bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">Admin Control Queue</h1>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">SMM Panel Order Management Matrix</p>
+          </div>
+          <button 
+            onClick={fetchLiveOrders}
+            className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-semibold rounded-xl transition-all"
+          >
+            Refresh Queue
+          </button>
         </div>
-        <button onClick={() => window.location.href = "/login"} className="btn-primary" style={{ background: '#7f1d1d', padding: '0.5rem 1rem', fontSize: '0.8rem' }}>Exit Admin Mode</button>
-      </div>
 
-      {/* Grid Display Metrics Rows */}
-      <div className="admin-stat-row">
-        <div className="stat-box" style={{ background: '#1f2937', color: 'white', padding: '1.25rem', borderRadius: '0.75rem', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Active Pipelines</span>
-          <h2 style={{ color: 'white', margin: '0.25rem 0 0 0', fontSize: '1.75rem', fontWeight: 900 }}>2,481</h2>
+        {/* Aggregated Analytical Grid Layout */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Received</span>
+            <span className="text-2xl font-black text-gray-900 mt-1 block">{totalVolumeOrders}</span>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm bg-blue-50/20">
+            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider block">Awaiting Verification</span>
+            <span className="text-2xl font-black text-blue-900 mt-1 block">{pendingSettlements}</span>
+          </div>
         </div>
-        <div className="stat-box pending" style={{ background: '#1f2937', color: 'white', padding: '1.25rem', borderRadius: '0.75rem', marginBottom: '1rem', borderLeft: '4px solid #f59e0b' }}>
-          <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Awaiting Verification</span>
-          <h2 style={{ color: '#f59e0b', margin: '0.25rem 0 0 0', fontSize: '1.75rem', fontWeight: 900 }}>1</h2>
-        </div>
-        <div className="stat-box revenue" style={{ background: '#1f2937', color: 'white', padding: '1.25rem', borderRadius: '0.75rem', marginBottom: '1rem', borderLeft: '4px solid #10b981' }}>
-          <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>Total Settled Vault</span>
-          <h2 style={{ color: '#10b981', margin: '0.25rem 0 0 0', fontSize: '1.75rem', fontWeight: 900 }}>KSh 84,200</h2>
-        </div>
-      </div>
 
-      <h3 style={{ marginBottom: '1rem', marginTop: '1.5rem' }}>Live Orders Fulfillment Queue</h3>
-      
-      {/* Scrollable Data Table Container */}
-      <div className="table-responsive-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Client / Queue ID</th>
-              <th>Platform Details</th>
-              <th>Target Link Payload</th>
-              <th>I&M Bank Code</th>
-              <th style={{ textAlign: 'right' }}>Cost</th>
-              <th style={{ textAlign: 'center' }}>Manual Trigger</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queues.map((q) => (
-              <tr key={q.id}>
-                <td>
-                  <strong style={{ color: '#111827' }}>{q.client}</strong>
-                  <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontFamily: 'monospace' }}>{q.id}</div>
-                </td>
-                <td>
-                  <strong style={{ color: '#111827' }}>{q.platform}</strong>
-                  <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{q.service} ({q.quantity.toLocaleString()})</div>
-                </td>
-                <td>
-                  <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#2563eb', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {q.link}
-                  </div>
-                </td>
-                <td style={{ fontFamily: 'monospace', color: '#d97706', fontWeight: 700, fontSize: '0.8rem' }}>
-                  {q.reference}
-                </td>
-                <td style={{ fontWeight: 700, textAlign: 'right', fontFamily: 'monospace' }}>
-                  KSh {q.cost.toLocaleString()}
-                </td>
-                <td style={{ textAlign: 'center' }}>
-                  {q.status === 'pending' ? (
-                    <button 
-                      onClick={() => fireOverridePipeline(q.id)} 
-                      className="btn-primary" 
-                      style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#10b981', border: 'none', borderRadius: '0.5rem' }}
-                    >
-                      Approve & Deliver
-                    </button>
-                  ) : (
-                    <span className="badge-delivering">Delivering...</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Live Tracking Table Interface Layout Container */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto w-full">
+            <table className="min-w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
+                  <th className="p-4">Target Link Payload</th>
+                  <th className="p-4">I&M Bank Code</th>
+                  <th className="p-4 text-right">Quantity</th>
+                  <th className="p-4 text-center">Status</th>
+                  <th className="p-4 text-right">Actions Matrix</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 font-medium">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-gray-400 font-normal">
+                      Querying streaming system lines...
+                    </td>
+                  </tr>
+                ) : orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-gray-400 font-normal">
+                      No customer tracking entries found inside network.
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((order) => (
+                    <tr key={order.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="p-4 max-w-[180px] truncate text-blue-600 font-mono">
+                        <a href={order.target_link} target="_blank" rel="noreferrer" className="hover:underline">
+                          {order.target_link}
+                        </a>
+                      </td>
+                      <td className="p-4 font-mono font-bold tracking-wide text-gray-700">
+                        {order.transaction_reference}
+                      </td>
+                      <td className="p-4 text-right font-bold text-gray-900">
+                        {order.quantity.toLocaleString()}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${
+                          order.status === "completed" ? "bg-green-50 text-green-700" :
+                          order.status === "failed" ? "bg-red-50 text-red-700" :
+                          order.status === "processing" ? "bg-yellow-50 text-yellow-700" :
+                          "bg-blue-50 text-blue-700"
+                        }`}>
+                          {order.status.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          disabled={updatingId !== null}
+                          onClick={() => handleUpdateStatus(order.id, "completed")}
+                          className="px-2 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-lg font-semibold transition-all shadow-sm"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          disabled={updatingId !== null}
+                          onClick={() => handleUpdateStatus(order.id, "failed")}
+                          className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 disabled:opacity-40 rounded-lg font-semibold transition-all"
+                        >
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   );
